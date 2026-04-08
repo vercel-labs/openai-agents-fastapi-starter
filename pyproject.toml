@@ -1,0 +1,13 @@
+[project]
+name = "openai-agents-vercel-template"
+version = "0.1.0"
+description = "Minimal OpenAI Agents SDK on Vercel Python Functions"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+  "fastapi>=0.117.1",
+  "openai-agents>=0.13.0",
+]
+
+[tool.ruff]
+line-length = 100
