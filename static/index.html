@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>OpenAI Agents Python Template</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box }
+
+    body {
+      font-family: -apple-system, system-ui, sans-serif;
+      background: #0a0a0a;
+      color: #ededed;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+    }
+
+    h1 { font-size: 1.25rem; font-weight: 500; margin-bottom: .5rem }
+    .sub { color: #888; font-size: .875rem; margin-bottom: 2rem }
+
+    form {
+      width: 100%;
+      max-width: 480px;
+      display: flex;
+      gap: .5rem;
+    }
+
+    input {
+      flex: 1;
+      padding: .625rem .75rem;
+      border-radius: 8px;
+      border: 1px solid #333;
+      background: #111;
+      color: #ededed;
+      font-size: .875rem;
+      outline: none;
+    }
+    input:focus { border-color: #555 }
+
+    button {
+      padding: .625rem 1rem;
+      border-radius: 8px;
+      border: none;
+      background: #ededed;
+      color: #0a0a0a;
+      font-size: .875rem;
+      font-weight: 500;
+      cursor: pointer;
+    }
+    button:hover { background: #fff }
+    button:disabled { opacity: .5; cursor: wait }
+
+    .output {
+      width: 100%;
+      max-width: 480px;
+      margin-top: 1rem;
+      padding: .75rem 1rem;
+      border-radius: 8px;
+      background: #111;
+      border: 1px solid #333;
+      font-size: .875rem;
+      min-height: 2.5rem;
+      white-space: pre-wrap;
+      line-height: 1.5;
+    }
+    .output:empty { display: none }
+    .error { border-color: #900; color: #f66 }
+
+    a {
+      color: #888;
+      font-size: .75rem;
+      margin-top: 2rem;
+      text-decoration: none;
+    }
+    a:hover { color: #ededed }
+  </style>
+</head>
+<body>
+  <h1>OpenAI Agents Python Template</h1>
+  <p class="sub">FastAPI + OpenAI Agents SDK running on Vercel Functions</p>
+  <form id="f">
+    <input id="i" placeholder="Try: What is 19 plus 23?" autofocus>
+    <button id="b" type="submit">Run</button>
+  </form>
+  <div id="o" class="output"></div>
+  <a href="/docs">API docs</a>
+  <script>
+    const f = document.getElementById('f');
+    const i = document.getElementById('i');
+    const b = document.getElementById('b');
+    const o = document.getElementById('o');
+
+    f.onsubmit = async (e) => {
+      e.preventDefault();
+      if (!i.value.trim()) return;
+      b.disabled = true;
+      o.textContent = 'Running...';
+      o.classList.remove('error');
+      try {
+        const r = await fetch('/api/run', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ input: i.value }),
+        });
+        const d = await r.json();
+        if (!r.ok) throw new Error(d.detail || r.statusText);
+        o.textContent = d.output;
+      } catch (err) {
+        o.textContent = err.message;
+        o.classList.add('error');
+      } finally {
+        b.disabled = false;
+      }
+    };
+  </script>
+</body>
+</html>

@@ -5,7 +5,10 @@ from __future__ import annotations
 import logging
 import os
 
+from pathlib import Path
+
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
 from agents import Agent, Runner, function_tool
@@ -53,9 +56,12 @@ class RunResponse(BaseModel):
     output: str
 
 
+STATIC_DIR = Path(__file__).parent / "static"
+
+
 @app.get("/")
-def home() -> dict[str, str]:
-    return {"status": "ok", "service": "openai-agents-vercel-template"}
+def home() -> FileResponse:
+    return FileResponse(STATIC_DIR / "index.html")
 
 
 @app.get("/api/health")
