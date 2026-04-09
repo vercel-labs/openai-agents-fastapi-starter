@@ -4,10 +4,11 @@ from __future__ import annotations
 
 import logging
 import os
-
+import time
+from collections import defaultdict
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
@@ -58,6 +59,22 @@ class RunResponse(BaseModel):
 
 STATIC_DIR = Path(__file__).parent / "static"
 
+RATE_LIMIT = 5
+RATE_WINDOW = 60
+_request_log: dict[str, list[float]] = defaultdict(list)
+
+
+def _check_rate_limit(ip: str) -> None:
+    now = time.time()
+    timestamps = _request_log[ip]
+    _request_log[ip] = [t for t in timestamps if now - t < RATE_WINDOW]
+    if len(_request_log[ip]) >= RATE_LIMIT:
+        raise HTTPException(
+            status_code=429,
+            detail=f"Rate limit exceeded. Try again in {RATE_WINDOW}s.",
+        )
+    _request_log[ip].append(now)
+
 
 @app.get("/")
 def home() -> FileResponse:
@@ -74,7 +91,9 @@ def health() -> dict[str, str | bool]:
 
 
 @app.post("/api/run", response_model=RunResponse)
-async def run_agent(body: RunRequest) -> RunResponse:
+async def run_agent(body: RunRequest, request: Request) -> RunResponse:
+    _check_rate_limit(request.client.host if request.client else "unknown")
+
     if not os.getenv("OPENAI_API_KEY", "").strip():
         raise HTTPException(
             status_code=503,

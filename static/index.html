@@ -108,6 +108,7 @@
         });
         const d = await r.json();
         if (!r.ok) throw new Error(d.detail || r.statusText);
+        i.value = '';
         o.textContent = d.output;
       } catch (err) {
         o.textContent = err.message;
