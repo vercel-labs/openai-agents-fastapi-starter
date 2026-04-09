@@ -1,4 +1,4 @@
-"""OpenAI Agents SDK on Vercel Python Functions (FastAPI ASGI)."""
+"""OpenAI Agents SDK + Vercel Sandbox on Vercel Python Functions."""
 
 from __future__ import annotations
 
@@ -8,48 +8,52 @@ import time
 from collections import defaultdict
 from pathlib import Path
 
+from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
-from agents import Agent, Runner, function_tool
+from agents import ModelSettings, Runner
 from agents.exceptions import AgentsException, UserError
+from agents.extensions.sandbox import (
+    VercelSandboxClient,
+    VercelSandboxClientOptions,
+)
 from agents.run import RunConfig
+from agents.sandbox import Manifest, SandboxAgent, SandboxRunConfig
+from agents.sandbox.capabilities import Shell
+from agents.sandbox.entries import File
+
+load_dotenv(".env.local")
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
-
-@function_tool
-def add_numbers(a: int, b: int) -> int:
-    """Add two integers and return the sum."""
-    return a + b
-
-
-def _demo_agent(model: str) -> Agent:
-    return Agent(
-        name="VercelDemo",
-        model=model,
-        instructions=(
-            "You are a concise assistant. When the user asks for addition of two integers, "
-            "use the add_numbers tool."
-        ),
-        tools=[add_numbers],
-    )
+SAMPLE_DATA = (
+    b"region,q1_revenue,q2_revenue\n"
+    b"north,120000,135000\n"
+    b"south,95000,102000\n"
+    b"east,110000,98000\n"
+    b"west,88000,115000\n"
+)
 
 
 def _default_model() -> str:
     return (os.getenv("OPENAI_DEFAULT_MODEL") or "gpt-4.1-mini").strip()
 
 
-app = FastAPI(title="OpenAI Agents — Vercel template")
+app = FastAPI(title="OpenAI Agents + Vercel Sandbox")
 
 
 class RunRequest(BaseModel):
-    input: str = Field(..., min_length=1, description="User message for the agent.")
+    input: str = Field(
+        ...,
+        min_length=1,
+        description="User message for the sandbox agent.",
+    )
     model: str | None = Field(
         default=None,
-        description="Model override; defaults to OPENAI_DEFAULT_MODEL or gpt-4.1-mini.",
+        description="Model override; defaults to OPENAI_DEFAULT_MODEL.",
     )
 
 
@@ -97,18 +101,47 @@ async def run_agent(body: RunRequest, request: Request) -> RunResponse:
     if not os.getenv("OPENAI_API_KEY", "").strip():
         raise HTTPException(
             status_code=503,
-            detail="OPENAI_API_KEY is not set. Add it in the Vercel project environment.",
+            detail="OPENAI_API_KEY is not set.",
         )
 
     model = (body.model or _default_model()).strip()
-    if not model:
-        raise HTTPException(status_code=400, detail="model must be a non-empty string when provided.")
 
-    agent = _demo_agent(model)
-    run_config = RunConfig(model=model)
+    manifest = Manifest(
+        entries={
+            "sales.csv": File(content=SAMPLE_DATA),
+        },
+    )
+
+    agent = SandboxAgent(
+        name="analyst",
+        model=model,
+        instructions=(
+            "You have shell access to an isolated sandbox. "
+            "Use it to analyze workspace files and answer "
+            "questions. Be concise."
+        ),
+        default_manifest=manifest,
+        capabilities=[Shell()],
+        model_settings=ModelSettings(tool_choice="required"),
+    )
+
+    client = VercelSandboxClient()
+    session = await client.create(
+        manifest=manifest,
+        options=VercelSandboxClientOptions(timeout_ms=120_000),
+    )
 
     try:
-        result = await Runner.run(agent, body.input, run_config=run_config)
+        async with session:
+            run_config = RunConfig(
+                sandbox=SandboxRunConfig(session=session),
+                tracing_disabled=True,
+            )
+            result = await Runner.run(
+                agent,
+                body.input,
+                run_config=run_config,
+            )
     except UserError as exc:
         raise HTTPException(status_code=400, detail=exc.message) from exc
     except AgentsException as exc:
@@ -117,6 +150,8 @@ async def run_agent(body: RunRequest, request: Request) -> RunResponse:
     except Exception:
         logger.exception("Unexpected error during agent run")
         raise HTTPException(status_code=500, detail="Internal server error") from None
+    finally:
+        await client.delete(session)
 
     final = result.final_output
     text = "" if final is None else str(final)

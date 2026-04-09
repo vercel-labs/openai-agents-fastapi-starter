@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>OpenAI Agents SDK Python Template</title>
+  <title>OpenAI Agents + Vercel Sandbox</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box }
 
@@ -80,10 +80,10 @@
   </style>
 </head>
 <body>
-  <h1>OpenAI Agents SDK Python Template</h1>
-  <p class="sub">FastAPI + OpenAI Agents SDK running on Vercel Functions</p>
+  <h1>OpenAI Agents + Vercel Sandbox</h1>
+  <p class="sub">Agent with shell access to an isolated microVM</p>
   <form id="f">
-    <input id="i" placeholder="Try: What is 19 plus 23?" autofocus>
+    <input id="i" placeholder="Try: Which region grew the most Q1 to Q2?" autofocus>
     <button id="b" type="submit">Run</button>
   </form>
   <div id="o" class="output"></div>
@@ -98,7 +98,7 @@
       e.preventDefault();
       if (!i.value.trim()) return;
       b.disabled = true;
-      o.textContent = 'Running...';
+      o.textContent = 'Spinning up sandbox...';
       o.classList.remove('error');
       try {
         const r = await fetch('/api/run', {

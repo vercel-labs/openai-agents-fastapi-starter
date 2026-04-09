@@ -1,10 +1,10 @@
-# OpenAI Agents Python on Vercel Functions
+# OpenAI Agents + Vercel Sandbox on Vercel Functions
 
-Minimal [FastAPI](https://fastapi.tiangolo.com/) app that runs the [OpenAI Agents SDK](https://github.com/openai/openai-agents-python) on [Vercel’s Python runtime](https://vercel.com/docs/functions/runtimes/python). Use it to prove `Runner.run` in production before wiring a remote sandbox client.
+Minimal [FastAPI](https://fastapi.tiangolo.com/) app that runs the [OpenAI Agents SDK](https://github.com/openai/openai-agents-python) with [Vercel Sandbox](https://vercel.com/docs/vercel-sandbox) on [Vercel's Python runtime](https://vercel.com/docs/functions/runtimes/python). Each request spins up an isolated microVM, gives the agent shell access to analyze data, and tears it down when done.
 
 ## Prerequisites
 
-- Python 3.12+ (Vercel default is 3.12; this template sets `requires-python >= 3.12`).
+- Python 3.12+ (Vercel default is 3.12).
 - A Vercel account and [Vercel CLI](https://vercel.com/docs/cli) (`npm i -g vercel`).
 - An OpenAI API key.
 
@@ -12,69 +12,60 @@ Minimal [FastAPI](https://fastapi.tiangolo.com/) app that runs the [OpenAI Agent
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `OPENAI_API_KEY` | Yes | API key for the OpenAI provider. Without it, `GET /api/health` reports `degraded` and `POST /api/run` returns **503**. |
-| `OPENAI_AGENT_HARNESS_ID` | No | If set, the SDK attaches `agent_harness_id` trace metadata (see SDK `openai_agent_registration`). |
-| `OPENAI_DEFAULT_MODEL` | No | Default model when the JSON body does not include `model`. Falls back to `gpt-4.1-mini`. |
+| `OPENAI_API_KEY` | Yes | API key for the OpenAI provider. |
+| `VERCEL_OIDC_TOKEN` | Yes | Auto-provisioned by `vercel env pull`. Authenticates Vercel Sandbox. |
+| `OPENAI_DEFAULT_MODEL` | No | Default model when the request body omits `model`. Falls back to `gpt-4.1-mini`. |
 
-Copy [.env.example](.env.example) to `.env` for local use. On Vercel, set variables under **Project → Settings → Environment Variables**.
+## Setup
+
+```bash
+vercel link
+vercel env pull
+```
+
+This creates `.env.local` with your `VERCEL_OIDC_TOKEN`. Add your OpenAI key:
+
+```bash
+echo 'OPENAI_API_KEY=sk-...' >> .env.local
+```
 
 ## Local development
 
 ```bash
 uv sync
-export OPENAI_API_KEY=sk-...
 uv run uvicorn app:app --reload --host 127.0.0.1 --port 8000
 ```
 
-- Health: `GET http://127.0.0.1:8000/api/health`
-- Run agent: `POST http://127.0.0.1:8000/api/run` with JSON body:
+Open http://127.0.0.1:8000 to use the interactive demo. The agent has shell access to a sandbox with sample sales data (`sales.csv`).
 
-```json
-{
-  "input": "What is 19 plus 23? Use the tool.",
-  "model": "gpt-4.1-mini"
-}
-```
+API endpoints:
 
-Optional: omit `model` to use `OPENAI_DEFAULT_MODEL` / `gpt-4.1-mini`.
+- `GET /api/health` returns `{"status": "ok", "openai_configured": true}`
+- `POST /api/run` with `{"input": "Which region grew the most?"}` runs the sandbox agent
 
 ## Deploy to Vercel
-
-From this directory:
 
 ```bash
 vercel
 ```
 
-Vercel detects `app.py` and the `app` ASGI instance. Dependencies come from [pyproject.toml](pyproject.toml).
+Vercel detects `app.py` and the `app` ASGI instance. Dependencies come from [pyproject.toml](pyproject.toml). Make sure `OPENAI_API_KEY` is set under **Project > Settings > Environment Variables**. The `VERCEL_OIDC_TOKEN` is auto-provisioned on Vercel deployments.
 
-### Bundle size
+### Rate limiting
 
-Python functions have an uncompressed bundle size limit (see [Vercel Python docs](https://vercel.com/docs/functions/runtimes/python)). [vercel.json](vercel.json) uses `excludeFiles` to omit common dev-only paths from the function bundle.
+The demo includes in-memory rate limiting (5 requests/minute per IP). This resets on cold starts and does not persist across function instances.
 
-### Timeouts and long runs
+### Timeouts
 
-Agent runs can span multiple model turns. Serverless functions have execution time limits; heavy workloads may need [Fluid Compute](https://vercel.com/docs/fluid-compute), a background worker, or [Vercel Workflow](https://vercel.com/docs/workflow) for durable steps.
+Sandbox creation and agent runs can take several seconds. Heavy workloads may need [Fluid Compute](https://vercel.com/docs/fluid-compute) or [Vercel Workflow](https://vercel.com/docs/workflow) for durable steps.
 
-## Phases
+## How it works
 
-1. **This template (Phase 1)** — Plain `Agent` + `function_tool` + `Runner.run` on Vercel. No workspace sandbox.
-2. **Streaming (optional)** — Add `Runner.run_streamed` and a streaming HTTP response (Vercel supports Python streaming).
-3. **Sandbox harness (Phase 3)** — `SandboxAgent` + `SandboxRunConfig(client=...)` needs a **remote** `SandboxClient` (e.g. Vercel Sandbox when exposed in the SDK, or another hosted backend). `UnixLocalSandboxClient` / Docker are not suitable inside a stateless function.
-
-### Using a preview / fork of the SDK
-
-To test unreleased SDK changes, point the dependency in `pyproject.toml` at your Git revision, for example:
-
-```toml
-dependencies = [
-  "fastapi>=0.117.1",
-  "openai-agents @ git+https://github.com/openai/openai-agents-python.git@YOUR_BRANCH",
-]
-```
-
-Then redeploy so Vercel installs that revision.
+1. Each `POST /api/run` creates a fresh [Vercel Sandbox](https://vercel.com/docs/vercel-sandbox) microVM with sample data.
+2. A `SandboxAgent` with `Shell` capability receives the user's prompt.
+3. The agent writes and runs shell commands inside the sandbox to answer the question.
+4. The sandbox is torn down after the response is returned.
 
 ## License
 
-MIT (match your org’s policy when publishing).
+MIT (match your org's policy when publishing).

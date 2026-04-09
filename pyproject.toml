@@ -6,7 +6,8 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
   "fastapi>=0.117.1",
-  "openai-agents>=0.13.0",
+  "openai-agents[vercel]",
+  "python-dotenv>=1.0",
 ]
 
 [tool.ruff]
