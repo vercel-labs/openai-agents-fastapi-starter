@@ -1,6 +1,6 @@
 # OpenAI Agents SDK FastAPI Starter with Vercel Sandbox
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fvercel-labs%2Fopenai-agents-fastapi-starter&env=OPENAI_API_KEY,VERCEL_TOKEN,VERCEL_TEAM_ID,VERCEL_PROJECT_ID&envDescription=API%20keys%20and%20Vercel%20credentials%20for%20the%20Agents%20SDK%20with%20Sandbox&envLink=https%3A%2F%2Fplatform.openai.com%2Fapi-keys&project-name=openai-agents-starter&repository-name=openai-agents-starter)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fvercel-labs%2Fopenai-agents-fastapi-starter&env=OPENAI_API_KEY&envDescription=Your%20OpenAI%20API%20key%20for%20the%20Agents%20SDK&envLink=https%3A%2F%2Fplatform.openai.com%2Fapi-keys&project-name=openai-agents-starter&repository-name=openai-agents-starter)
 
 Minimal [FastAPI](https://fastapi.tiangolo.com/) app that runs the [OpenAI Agents SDK](https://github.com/openai/openai-agents-python) with [Vercel Sandbox](https://vercel.com/docs/vercel-sandbox) on [Vercel's Python runtime](https://vercel.com/docs/functions/runtimes/python). Each request spins up an isolated microVM, gives the agent shell access to analyze data, and tears it down when done.
 

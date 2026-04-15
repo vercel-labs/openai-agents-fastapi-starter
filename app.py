@@ -97,14 +97,13 @@ def health() -> dict[str, str | bool]:
 
 @app.post("/api/run")
 async def run_agent(body: RunRequest, request: Request) -> StreamingResponse:
-    if not os.getenv("OPENAI_API_KEY", "").strip():
-        raise HTTPException(status_code=503, detail="OPENAI_API_KEY is not set.")
-    if not os.getenv("VERCEL_TOKEN", "").strip():
-        raise HTTPException(status_code=503, detail="VERCEL_TOKEN is not set.")
-    if not os.getenv("VERCEL_TEAM_ID", "").strip():
-        raise HTTPException(status_code=503, detail="VERCEL_TEAM_ID is not set.")
-    if not os.getenv("VERCEL_PROJECT_ID", "").strip():
-        raise HTTPException(status_code=503, detail="VERCEL_PROJECT_ID is not set.")
+    env_url = "https://vercel.com/d?to=%2F%5Bteam%5D%2F%5Bproject%5D%2Fsettings%2Fenvironment-variables"
+    for var in ("OPENAI_API_KEY", "VERCEL_TOKEN", "VERCEL_TEAM_ID", "VERCEL_PROJECT_ID"):
+        if not os.getenv(var, "").strip():
+            raise HTTPException(
+                status_code=503,
+                detail=f"{var} is not set. Add it in your project settings: {env_url}",
+            )
 
     async def generate() -> AsyncIterator[str]:
         model = (body.model or _default_model()).strip()
