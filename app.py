@@ -2,16 +2,19 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import os
-import time
-from collections import defaultdict
+from collections.abc import AsyncIterator
 from pathlib import Path
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
+from openai.types.responses import ResponseTextDeltaEvent
 from pydantic import BaseModel, Field
+
+from upstash_redis import Redis
 
 from agents import ModelSettings, Runner
 from agents.exceptions import AgentsException, UserError
@@ -23,6 +26,7 @@ from agents.run import RunConfig
 from agents.sandbox import Manifest, SandboxAgent, SandboxRunConfig
 from agents.sandbox.capabilities import Shell
 from agents.sandbox.entries import File
+from agents.stream_events import RunItemStreamEvent
 
 load_dotenv(".env.local")
 
@@ -57,27 +61,60 @@ class RunRequest(BaseModel):
     )
 
 
-class RunResponse(BaseModel):
-    output: str
-
-
 STATIC_DIR = Path(__file__).parent / "static"
+DAILY_REQUEST_CAP = int(os.getenv("DAILY_REQUEST_CAP", "100"))
 
-RATE_LIMIT = 5
-RATE_WINDOW = 60
-_request_log: dict[str, list[float]] = defaultdict(list)
+_redis: Redis | None = None
 
 
-def _check_rate_limit(ip: str) -> None:
-    now = time.time()
-    timestamps = _request_log[ip]
-    _request_log[ip] = [t for t in timestamps if now - t < RATE_WINDOW]
-    if len(_request_log[ip]) >= RATE_LIMIT:
+def _get_redis() -> Redis | None:
+    global _redis
+    if _redis is not None:
+        return _redis
+    url = os.getenv("UPSTASH_REDIS_REST_URL") or os.getenv("KV_REST_API_URL")
+    token = os.getenv("UPSTASH_REDIS_REST_TOKEN") or os.getenv("KV_REST_API_TOKEN")
+    if url and token:
+        _redis = Redis(url=url, token=token)
+    return _redis
+
+
+def _check_daily_cap() -> None:
+    redis = _get_redis()
+    if redis is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Redis is not configured. Set UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN.",
+        )
+    from datetime import UTC, datetime
+
+    key = f"agent-runs:{datetime.now(UTC).strftime('%Y-%m-%d')}"
+    count = redis.incr(key)
+    if count == 1:
+        redis.expire(key, 86400)
+    if count > DAILY_REQUEST_CAP:
         raise HTTPException(
             status_code=429,
-            detail=f"Rate limit exceeded. Try again in {RATE_WINDOW}s.",
+            detail="Daily request limit reached. Try again tomorrow.",
         )
-    _request_log[ip].append(now)
+
+
+def _sse(event: str, data: object) -> str:
+    payload = json.dumps(data, default=str)
+    return f"event: {event}\ndata: {payload}\n\n"
+
+
+def _extract_tool_call_command(item: object) -> str | None:
+    raw = getattr(item, "raw_item", None)
+    if raw is None:
+        return None
+    arguments = getattr(raw, "arguments", None)
+    if not arguments:
+        return None
+    try:
+        parsed = json.loads(arguments) if isinstance(arguments, str) else arguments
+        return parsed.get("cmd")
+    except Exception:
+        return None
 
 
 @app.get("/")
@@ -94,65 +131,79 @@ def health() -> dict[str, str | bool]:
     }
 
 
-@app.post("/api/run", response_model=RunResponse)
-async def run_agent(body: RunRequest, request: Request) -> RunResponse:
-    _check_rate_limit(request.client.host if request.client else "unknown")
+@app.post("/api/run")
+async def run_agent(body: RunRequest, request: Request) -> StreamingResponse:
+    _check_daily_cap()
 
     if not os.getenv("OPENAI_API_KEY", "").strip():
-        raise HTTPException(
-            status_code=503,
-            detail="OPENAI_API_KEY is not set.",
+        raise HTTPException(status_code=503, detail="OPENAI_API_KEY is not set.")
+
+    async def generate() -> AsyncIterator[str]:
+        model = (body.model or _default_model()).strip()
+
+        manifest = Manifest(
+            entries={"sales.csv": File(content=SAMPLE_DATA)},
         )
 
-    model = (body.model or _default_model()).strip()
+        agent = SandboxAgent(
+            name="analyst",
+            model=model,
+            instructions=(
+                "You have shell access to an isolated sandbox. "
+                "Use it to analyze workspace files and answer "
+                "questions. Be concise."
+            ),
+            default_manifest=manifest,
+            capabilities=[Shell()],
+            model_settings=ModelSettings(tool_choice="required"),
+        )
 
-    manifest = Manifest(
-        entries={
-            "sales.csv": File(content=SAMPLE_DATA),
-        },
-    )
+        client = VercelSandboxClient()
+        session = None
 
-    agent = SandboxAgent(
-        name="analyst",
-        model=model,
-        instructions=(
-            "You have shell access to an isolated sandbox. "
-            "Use it to analyze workspace files and answer "
-            "questions. Be concise."
-        ),
-        default_manifest=manifest,
-        capabilities=[Shell()],
-        model_settings=ModelSettings(tool_choice="required"),
-    )
-
-    client = VercelSandboxClient()
-    session = await client.create(
-        manifest=manifest,
-        options=VercelSandboxClientOptions(timeout_ms=120_000),
-    )
-
-    try:
-        async with session:
-            run_config = RunConfig(
-                sandbox=SandboxRunConfig(session=session),
-                tracing_disabled=True,
+        try:
+            session = await client.create(
+                manifest=manifest,
+                options=VercelSandboxClientOptions(timeout_ms=120_000),
             )
-            result = await Runner.run(
-                agent,
-                body.input,
-                run_config=run_config,
-            )
-    except UserError as exc:
-        raise HTTPException(status_code=400, detail=exc.message) from exc
-    except AgentsException as exc:
-        logger.exception("Agents run failed")
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
-    except Exception:
-        logger.exception("Unexpected error during agent run")
-        raise HTTPException(status_code=500, detail="Internal server error") from None
-    finally:
-        await client.delete(session)
 
-    final = result.final_output
-    text = "" if final is None else str(final)
-    return RunResponse(output=text)
+            async with session:
+                run_config = RunConfig(
+                    sandbox=SandboxRunConfig(session=session),
+                    tracing_disabled=True,
+                )
+                result = Runner.run_streamed(
+                    agent, body.input, run_config=run_config, max_turns=10
+                )
+
+                async for event in result.stream_events():
+                    if isinstance(event, RunItemStreamEvent):
+                        if event.name == "tool_called":
+                            cmd = _extract_tool_call_command(event.item)
+                            if cmd:
+                                yield _sse("tool_call", {"command": cmd})
+                        elif event.name == "tool_output":
+                            output = getattr(event.item, "output", None)
+                            if output is not None:
+                                yield _sse("tool_output", {"output": str(output)})
+
+                    elif (
+                        event.type == "raw_response_event"
+                        and isinstance(event.data, ResponseTextDeltaEvent)
+                    ):
+                        yield _sse("text_delta", {"delta": event.data.delta})
+
+                yield _sse("done", {})
+        except UserError as exc:
+            yield _sse("error", {"detail": exc.message})
+        except AgentsException as exc:
+            logger.exception("Agents run failed")
+            yield _sse("error", {"detail": str(exc)})
+        except Exception as exc:
+            logger.exception("Unexpected error during agent run")
+            yield _sse("error", {"detail": str(exc)})
+        finally:
+            if session is not None:
+                await client.delete(session)
+
+    return StreamingResponse(generate(), media_type="text/event-stream")

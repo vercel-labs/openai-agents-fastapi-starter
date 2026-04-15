@@ -8,7 +8,7 @@
     * { margin: 0; padding: 0; box-sizing: border-box }
 
     body {
-      font-family: -apple-system, system-ui, sans-serif;
+      font-family: -apple-system, system-ui, 'Segoe UI', sans-serif;
       background: #0a0a0a;
       color: #ededed;
       min-height: 100vh;
@@ -24,7 +24,7 @@
 
     form {
       width: 100%;
-      max-width: 480px;
+      max-width: 560px;
       display: flex;
       gap: .5rem;
     }
@@ -50,71 +50,250 @@
       font-size: .875rem;
       font-weight: 500;
       cursor: pointer;
+      white-space: nowrap;
     }
     button:hover { background: #fff }
     button:disabled { opacity: .5; cursor: wait }
 
-    .output {
+    #output {
       width: 100%;
-      max-width: 480px;
+      max-width: 560px;
       margin-top: 1rem;
-      padding: .75rem 1rem;
-      border-radius: 8px;
+      display: none;
+      flex-direction: column;
+      gap: 0;
+    }
+    #output.active { display: flex }
+
+    .status {
+      color: #888;
+      font-size: .8125rem;
+      padding: .5rem 0;
+    }
+
+    .shell-block {
       background: #111;
-      border: 1px solid #333;
-      font-size: .875rem;
-      min-height: 2.5rem;
-      white-space: pre-wrap;
+      border: 1px solid #282828;
+      border-radius: 8px;
+      overflow: hidden;
+      margin: .375rem 0;
+      font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', 'Consolas', monospace;
+      font-size: .8125rem;
       line-height: 1.5;
     }
-    .output:empty { display: none }
-    .error { border-color: #900; color: #f66 }
 
-    a {
+    .shell-cmd {
+      padding: .5rem .75rem;
+      background: #161616;
+      color: #a8e6a1;
+      border-bottom: 1px solid #282828;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+    .shell-cmd::before {
+      content: '$ ';
+      color: #666;
+    }
+
+    .shell-out {
+      padding: .5rem .75rem;
+      color: #b0b0b0;
+      white-space: pre-wrap;
+      word-break: break-all;
+      max-height: 240px;
+      overflow-y: auto;
+    }
+    .shell-out:empty { display: none }
+
+    .answer {
+      padding: .625rem 0;
+      font-size: .875rem;
+      line-height: 1.6;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .answer:empty { display: none }
+
+    .error-msg {
+      color: #f66;
+      font-size: .875rem;
+      padding: .5rem .75rem;
+      background: #1a0000;
+      border: 1px solid #3a0000;
+      border-radius: 8px;
+      margin-top: .375rem;
+    }
+
+    footer {
+      margin-top: 2rem;
+    }
+    footer a {
       color: #888;
       font-size: .75rem;
-      margin-top: 2rem;
       text-decoration: none;
     }
-    a:hover { color: #ededed }
+    footer a:hover { color: #ededed }
   </style>
 </head>
 <body>
   <h1>OpenAI Agents + Vercel Sandbox</h1>
   <p class="sub">Agent with shell access to an isolated microVM</p>
-  <form id="f">
-    <input id="i" placeholder="Try: Which region grew the most Q1 to Q2?" autofocus>
-    <button id="b" type="submit">Run</button>
-  </form>
-  <div id="o" class="output"></div>
-  <a href="/docs">API docs</a>
-  <script>
-    const f = document.getElementById('f');
-    const i = document.getElementById('i');
-    const b = document.getElementById('b');
-    const o = document.getElementById('o');
 
-    f.onsubmit = async (e) => {
+  <form id="form">
+    <input id="input" placeholder="Try: Which region grew the most Q1 to Q2?" autofocus>
+    <button id="btn" type="submit">Run</button>
+  </form>
+
+  <div id="output"></div>
+
+  <footer><a href="/docs">API docs</a></footer>
+
+  <script>
+    const form = document.getElementById('form');
+    const input = document.getElementById('input');
+    const btn = document.getElementById('btn');
+    const output = document.getElementById('output');
+
+    let currentShellBlock = null;
+
+    function reset() {
+      output.innerHTML = '';
+      output.classList.add('active');
+      currentShellBlock = null;
+    }
+
+    function addStatus(text) {
+      const el = document.createElement('div');
+      el.className = 'status';
+      el.textContent = text;
+      output.appendChild(el);
+      return el;
+    }
+
+    function addShellCommand(cmd) {
+      const block = document.createElement('div');
+      block.className = 'shell-block';
+
+      const cmdEl = document.createElement('div');
+      cmdEl.className = 'shell-cmd';
+      cmdEl.textContent = cmd;
+
+      const outEl = document.createElement('div');
+      outEl.className = 'shell-out';
+
+      block.appendChild(cmdEl);
+      block.appendChild(outEl);
+      output.appendChild(block);
+      currentShellBlock = block;
+    }
+
+    function setShellOutput(text) {
+      if (!currentShellBlock) return;
+      const outEl = currentShellBlock.querySelector('.shell-out');
+      if (!outEl) return;
+
+      // Extract just the output portion after the "Output:" header.
+      const marker = 'Output:\n';
+      const idx = text.indexOf(marker);
+      const cleaned = idx >= 0 ? text.substring(idx + marker.length) : text;
+      outEl.textContent = cleaned.trimEnd();
+    }
+
+    function getOrCreateAnswer() {
+      let el = output.querySelector('.answer');
+      if (!el) {
+        el = document.createElement('div');
+        el.className = 'answer';
+        output.appendChild(el);
+      }
+      return el;
+    }
+
+    function showError(msg) {
+      const el = document.createElement('div');
+      el.className = 'error-msg';
+      el.textContent = msg;
+      output.appendChild(el);
+    }
+
+    form.onsubmit = async (e) => {
       e.preventDefault();
-      if (!i.value.trim()) return;
-      b.disabled = true;
-      o.textContent = 'Spinning up sandbox...';
-      o.classList.remove('error');
+      const query = input.value.trim();
+      if (!query) return;
+
+      btn.disabled = true;
+      reset();
+      const statusEl = addStatus('Spinning up sandbox\u2026');
+
       try {
-        const r = await fetch('/api/run', {
+        const res = await fetch('/api/run', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ input: i.value }),
+          body: JSON.stringify({ input: query }),
         });
-        const d = await r.json();
-        if (!r.ok) throw new Error(d.detail || r.statusText);
-        i.value = '';
-        o.textContent = d.output;
+
+        if (!res.ok) {
+          let detail = res.statusText;
+          try { detail = (await res.json()).detail || detail; } catch {}
+          throw new Error(detail);
+        }
+
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+        let gotFirstEvent = false;
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+          const parts = buffer.split('\n\n');
+          buffer = parts.pop();
+
+          for (const part of parts) {
+            const lines = part.split('\n');
+            let eventName = '';
+            let eventData = '';
+
+            for (const line of lines) {
+              if (line.startsWith('event: ')) eventName = line.slice(7);
+              else if (line.startsWith('data: ')) eventData = line.slice(6);
+            }
+
+            if (!eventName) continue;
+
+            if (!gotFirstEvent) {
+              statusEl.remove();
+              gotFirstEvent = true;
+            }
+
+            if (eventName === 'tool_call') {
+              const d = JSON.parse(eventData);
+              addShellCommand(d.command);
+            } else if (eventName === 'tool_output') {
+              const d = JSON.parse(eventData);
+              setShellOutput(d.output);
+            } else if (eventName === 'text_delta') {
+              const d = JSON.parse(eventData);
+              const el = getOrCreateAnswer();
+              el.textContent += d.delta;
+            } else if (eventName === 'error') {
+              const d = JSON.parse(eventData);
+              showError(d.detail);
+            }
+          }
+        }
+
+        if (!gotFirstEvent) {
+          statusEl.textContent = 'No response received.';
+        }
+
+        input.value = '';
       } catch (err) {
-        o.textContent = err.message;
-        o.classList.add('error');
+        showError(err.message);
       } finally {
-        b.disabled = false;
+        btn.disabled = false;
       }
     };
   </script>
