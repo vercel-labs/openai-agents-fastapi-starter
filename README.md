@@ -1,4 +1,4 @@
-# OpenAI Agents + Vercel Sandbox on Vercel Functions
+# OpenAI Agents SDK FastAPI Starter with Vercel Sandbox
 
 Minimal [FastAPI](https://fastapi.tiangolo.com/) app that runs the [OpenAI Agents SDK](https://github.com/openai/openai-agents-python) with [Vercel Sandbox](https://vercel.com/docs/vercel-sandbox) on [Vercel's Python runtime](https://vercel.com/docs/functions/runtimes/python). Each request spins up an isolated microVM, gives the agent shell access to analyze data, and tears it down when done.
 
