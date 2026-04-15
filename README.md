@@ -66,6 +66,9 @@ Sandbox creation and agent runs can take several seconds. Heavy workloads may ne
 3. The agent writes and runs shell commands inside the sandbox to answer the question.
 4. The sandbox is torn down after the response is returned.
 
+<img width="3190" height="1106" alt="2026-04-14 at 21 54 06@2x" src="https://github.com/user-attachments/assets/773ec3a0-1369-4d5d-a311-0125958a7ce0" />
+
+
 ## License
 
 MIT (match your org's policy when publishing).
