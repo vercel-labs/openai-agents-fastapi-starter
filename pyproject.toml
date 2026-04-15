@@ -8,7 +8,6 @@ dependencies = [
   "fastapi>=0.117.1",
   "openai-agents[vercel]",
   "python-dotenv>=1.0",
-  "upstash-redis>=1.1.0",
 ]
 
 [tool.ruff]

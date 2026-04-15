@@ -14,8 +14,6 @@ from fastapi.responses import FileResponse, StreamingResponse
 from openai.types.responses import ResponseTextDeltaEvent
 from pydantic import BaseModel, Field
 
-from upstash_redis import Redis
-
 from agents import ModelSettings, Runner
 from agents.exceptions import AgentsException, UserError
 from agents.extensions.sandbox import (
@@ -62,40 +60,6 @@ class RunRequest(BaseModel):
 
 
 STATIC_DIR = Path(__file__).parent / "static"
-DAILY_REQUEST_CAP = int(os.getenv("DAILY_REQUEST_CAP", "100"))
-
-_redis: Redis | None = None
-
-
-def _get_redis() -> Redis | None:
-    global _redis
-    if _redis is not None:
-        return _redis
-    url = os.getenv("UPSTASH_REDIS_REST_URL") or os.getenv("KV_REST_API_URL")
-    token = os.getenv("UPSTASH_REDIS_REST_TOKEN") or os.getenv("KV_REST_API_TOKEN")
-    if url and token:
-        _redis = Redis(url=url, token=token)
-    return _redis
-
-
-def _check_daily_cap() -> None:
-    redis = _get_redis()
-    if redis is None:
-        raise HTTPException(
-            status_code=503,
-            detail="Redis is not configured. Set UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN.",
-        )
-    from datetime import UTC, datetime
-
-    key = f"agent-runs:{datetime.now(UTC).strftime('%Y-%m-%d')}"
-    count = redis.incr(key)
-    if count == 1:
-        redis.expire(key, 86400)
-    if count > DAILY_REQUEST_CAP:
-        raise HTTPException(
-            status_code=429,
-            detail="Daily request limit reached. Try again tomorrow.",
-        )
 
 
 def _sse(event: str, data: object) -> str:
@@ -133,8 +97,6 @@ def health() -> dict[str, str | bool]:
 
 @app.post("/api/run")
 async def run_agent(body: RunRequest, request: Request) -> StreamingResponse:
-    _check_daily_cap()
-
     if not os.getenv("OPENAI_API_KEY", "").strip():
         raise HTTPException(status_code=503, detail="OPENAI_API_KEY is not set.")
 
