@@ -1,5 +1,7 @@
 # OpenAI Agents SDK FastAPI Starter with Vercel Sandbox
 
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fvercel-labs%2Fopenai-agents-fastapi-starter&env=OPENAI_API_KEY,VERCEL_TOKEN,VERCEL_TEAM_ID,VERCEL_PROJECT_ID&envDescription=API%20keys%20and%20Vercel%20credentials%20for%20the%20Agents%20SDK%20with%20Sandbox&envLink=https%3A%2F%2Fplatform.openai.com%2Fapi-keys&project-name=openai-agents-starter&repository-name=openai-agents-starter)
+
 Minimal [FastAPI](https://fastapi.tiangolo.com/) app that runs the [OpenAI Agents SDK](https://github.com/openai/openai-agents-python) with [Vercel Sandbox](https://vercel.com/docs/vercel-sandbox) on [Vercel's Python runtime](https://vercel.com/docs/functions/runtimes/python). Each request spins up an isolated microVM, gives the agent shell access to analyze data, and tears it down when done.
 
 ## Prerequisites
@@ -13,20 +15,26 @@ Minimal [FastAPI](https://fastapi.tiangolo.com/) app that runs the [OpenAI Agent
 | Variable | Required | Description |
 |----------|----------|-------------|
 | `OPENAI_API_KEY` | Yes | API key for the OpenAI provider. |
-| `VERCEL_OIDC_TOKEN` | Yes | Auto-provisioned by `vercel env pull`. Authenticates Vercel Sandbox. |
+| `VERCEL_TOKEN` | Yes | Vercel access token. Create one at https://vercel.com/account/tokens. |
+| `VERCEL_TEAM_ID` | Yes | Your Vercel team ID (starts with `team_`). Found under **Team Settings > General**. |
+| `VERCEL_PROJECT_ID` | Yes | Your Vercel project ID (starts with `prj_`). Found under **Project Settings > General**. |
 | `OPENAI_DEFAULT_MODEL` | No | Default model when the request body omits `model`. Falls back to `gpt-4.1-mini`. |
 
 ## Setup
 
+Copy the example env file and fill in your values:
+
 ```bash
-vercel link
-vercel env pull
+cp .env.example .env.local
 ```
 
-This creates `.env.local` with your `VERCEL_OIDC_TOKEN`. Add your OpenAI key:
+Then edit `.env.local` with your keys:
 
-```bash
-echo 'OPENAI_API_KEY=sk-...' >> .env.local
+```
+OPENAI_API_KEY=sk-...
+VERCEL_TOKEN=your_access_token
+VERCEL_TEAM_ID=team_xxx
+VERCEL_PROJECT_ID=prj_xxx
 ```
 
 ## Local development
@@ -49,11 +57,9 @@ API endpoints:
 vercel
 ```
 
-Vercel detects `app.py` and the `app` ASGI instance. Dependencies come from [pyproject.toml](pyproject.toml). Make sure `OPENAI_API_KEY` is set under **Project > Settings > Environment Variables**. The `VERCEL_OIDC_TOKEN` is auto-provisioned on Vercel deployments.
+Vercel detects `app.py` and the `app` ASGI instance. Dependencies come from [pyproject.toml](pyproject.toml).
 
-### Rate limiting
-
-The demo includes in-memory rate limiting (5 requests/minute per IP). This resets on cold starts and does not persist across function instances.
+After deploying, make sure `OPENAI_API_KEY`, `VERCEL_TOKEN`, `VERCEL_TEAM_ID`, and `VERCEL_PROJECT_ID` are set under **Project Settings > Environment Variables**.
 
 ### Timeouts
 

@@ -99,6 +99,12 @@ def health() -> dict[str, str | bool]:
 async def run_agent(body: RunRequest, request: Request) -> StreamingResponse:
     if not os.getenv("OPENAI_API_KEY", "").strip():
         raise HTTPException(status_code=503, detail="OPENAI_API_KEY is not set.")
+    if not os.getenv("VERCEL_TOKEN", "").strip():
+        raise HTTPException(status_code=503, detail="VERCEL_TOKEN is not set.")
+    if not os.getenv("VERCEL_TEAM_ID", "").strip():
+        raise HTTPException(status_code=503, detail="VERCEL_TEAM_ID is not set.")
+    if not os.getenv("VERCEL_PROJECT_ID", "").strip():
+        raise HTTPException(status_code=503, detail="VERCEL_PROJECT_ID is not set.")
 
     async def generate() -> AsyncIterator[str]:
         model = (body.model or _default_model()).strip()
@@ -120,7 +126,11 @@ async def run_agent(body: RunRequest, request: Request) -> StreamingResponse:
             model_settings=ModelSettings(tool_choice="required"),
         )
 
-        client = VercelSandboxClient()
+        client = VercelSandboxClient(
+            token=os.getenv("VERCEL_TOKEN"),
+            team_id=os.getenv("VERCEL_TEAM_ID"),
+            project_id=os.getenv("VERCEL_PROJECT_ID"),
+        )
         session = None
 
         try:
