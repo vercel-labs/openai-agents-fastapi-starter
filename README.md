@@ -81,7 +81,7 @@ If you want to use the Vercel AI Gateway with the OpenAI Agents SDK, there are t
 
 1. [Create a new AI Gateway API key](https://vercel.com/docs/ai-gateway/getting-started/text#set-up-your-api-key), and set it as your `OPENAI_API_KEY` environment variable under **Project Settings > Environment Variables**.
 2. Set the `OPENAI_BASE_URL` environment variable to `https://ai-gateway.vercel.sh/v1` under **Project Settings > Environment Variables**.
-3. Ensure that the provider prefix on your model ID is not being stripped by setting the `model_provider=MultiProvider(openai_prefix="model_id")` in your `RunConfig` as shown in the example.
+3. Ensure that the provider prefix on your model ID is not being stripped by setting the `model_provider=MultiProvider(openai_prefix_mode="model_id")` in your `RunConfig` as shown in the example.
 
 
 ## License
