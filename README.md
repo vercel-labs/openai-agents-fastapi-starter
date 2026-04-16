@@ -8,17 +8,18 @@ Minimal [FastAPI](https://fastapi.tiangolo.com/) app that runs the [OpenAI Agent
 
 - Python 3.12+ (Vercel default is 3.12).
 - A Vercel account and [Vercel CLI](https://vercel.com/docs/cli) (`npm i -g vercel`).
-- An OpenAI API key.
+- An [OpenAI](https://help.openai.com/en/articles/4936850-where-do-i-find-my-openai-api-key) or [Vercel AI Gateway](https://vercel.com/docs/ai-gateway/getting-started/text#set-up-your-api-key) API key.
 
 ## Environment variables
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `OPENAI_API_KEY` | Yes | API key for the OpenAI provider. |
+| `OPENAI_API_KEY` | Yes | OpenAI or Vercel AI Gateway API key. |
 | `VERCEL_TOKEN` | Yes | Vercel access token. Create one at https://vercel.com/account/tokens. |
 | `VERCEL_TEAM_ID` | Yes | Your Vercel team ID (starts with `team_`). Found under **Team Settings > General**. |
 | `VERCEL_PROJECT_ID` | Yes | Your Vercel project ID (starts with `prj_`). Found under **Project Settings > General**. |
 | `OPENAI_DEFAULT_MODEL` | No | Default model when the request body omits `model`. Falls back to `gpt-4.1-mini`. |
+| `OPENAI_BASE_URL` | No | When using AI Gateway, set this to `https://ai-gateway.vercel.sh/v1` |
 
 ## Setup
 
@@ -73,6 +74,14 @@ Sandbox creation and agent runs can take several seconds. Heavy workloads may ne
 4. The sandbox is torn down after the response is returned.
 
 <img width="3190" height="1106" alt="2026-04-14 at 21 54 06@2x" src="https://github.com/user-attachments/assets/773ec3a0-1369-4d5d-a311-0125958a7ce0" />
+
+## AI Gateway
+
+If you want to use the Vercel AI Gateway with the OpenAI Agents SDK, there are three simple changes that are needed.
+
+1. [Create a new AI Gateway API key](https://vercel.com/docs/ai-gateway/getting-started/text#set-up-your-api-key), and set it as your `OPENAI_API_KEY` environment variable under **Project Settings > Environment Variables**.
+2. Set the `OPENAI_BASE_URL` environment variable to `https://ai-gateway.vercel.sh/v1` under **Project Settings > Environment Variables**.
+3. Ensure that the provider prefix on your model ID is not being stripped by setting the `model_provider=MultiProvider(openai_prefix_mode="model_id")` in your `RunConfig` as shown in the example.
 
 
 ## License

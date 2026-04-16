@@ -21,6 +21,7 @@ from agents.extensions.sandbox import (
     VercelSandboxClientOptions,
 )
 from agents.run import RunConfig
+from agents.models.multi_provider import MultiProvider
 from agents.sandbox import Manifest, SandboxAgent, SandboxRunConfig
 from agents.sandbox.capabilities import Shell
 from agents.sandbox.entries import File
@@ -41,7 +42,7 @@ SAMPLE_DATA = (
 
 
 def _default_model() -> str:
-    return (os.getenv("OPENAI_DEFAULT_MODEL") or "gpt-4.1-mini").strip()
+    return (os.getenv("OPENAI_DEFAULT_MODEL") or "openai/gpt-4.1-mini").strip()
 
 
 app = FastAPI(title="OpenAI Agents + Vercel Sandbox")
@@ -105,6 +106,12 @@ async def run_agent(body: RunRequest, request: Request) -> StreamingResponse:
                 detail=f"{var} is not set. Add it in your project settings: {env_url}",
             )
 
+    token = os.getenv("VERCEL_TOKEN")
+    team_id = os.getenv("VERCEL_TEAM_ID")
+    project_id = os.getenv("VERCEL_PROJECT_ID")
+    base_url = os.getenv("OPENAI_BASE_URL")
+    is_ai_gateway = (base_url is not None) and base_url.startswith("https://ai-gateway.vercel.sh")
+
     async def generate() -> AsyncIterator[str]:
         model = (body.model or _default_model()).strip()
 
@@ -126,9 +133,9 @@ async def run_agent(body: RunRequest, request: Request) -> StreamingResponse:
         )
 
         client = VercelSandboxClient(
-            token=os.getenv("VERCEL_TOKEN"),
-            team_id=os.getenv("VERCEL_TEAM_ID"),
-            project_id=os.getenv("VERCEL_PROJECT_ID"),
+            token=token,
+            team_id=team_id,
+            project_id=project_id,
         )
         session = None
 
@@ -140,6 +147,7 @@ async def run_agent(body: RunRequest, request: Request) -> StreamingResponse:
 
             async with session:
                 run_config = RunConfig(
+                    model_provider=MultiProvider(openai_prefix_mode="model_id" if is_ai_gateway else "alias"),
                     sandbox=SandboxRunConfig(session=session),
                     tracing_disabled=True,
                 )
