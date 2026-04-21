@@ -532,26 +532,23 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/8d/3e/0be9a884d3b770114572e0be101ab8adb04a7f1a99620261e7393b72a655/openai_agents-0.14.0-py3-none-any.whl", hash = "sha256:5a1dad74de95970efbf4a3f89dfd50d6a22202d9105b81d7abb25a0be3d493c7", size = 795734, upload-time = "2026-04-15T17:12:08.001Z" },
 ]
 
-[package.optional-dependencies]
-vercel = [
-    { name = "vercel" },
-]
-
 [[package]]
 name = "openai-agents-vercel-template"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
     { name = "fastapi" },
-    { name = "openai-agents", extra = ["vercel"] },
+    { name = "openai-agents" },
     { name = "python-dotenv" },
+    { name = "vercel" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "fastapi", specifier = ">=0.117.1" },
-    { name = "openai-agents", extras = ["vercel"] },
+    { name = "openai-agents" },
     { name = "python-dotenv", specifier = ">=1.0" },
+    { name = "vercel", git = "https://github.com/vercel/vercel-py.git?rev=d5d6ec514313f824144672215a8ce919b6e5b981" },
 ]
 
 [[package]]
@@ -925,8 +922,8 @@ wheels = [
 
 [[package]]
 name = "vercel"
-version = "0.5.6"
-source = { registry = "https://pypi.org/simple" }
+version = "0.5.7"
+source = { git = "https://github.com/vercel/vercel-py.git?rev=d5d6ec514313f824144672215a8ce919b6e5b981#d5d6ec514313f824144672215a8ce919b6e5b981" }
 dependencies = [
     { name = "anyio" },
     { name = "cbor2" },
@@ -935,10 +932,6 @@ dependencies = [
     { name = "python-dotenv" },
     { name = "vercel-workers" },
     { name = "websockets" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/73/2a/acf30370e110c839b198cdf08ccfbacc9e11db91fc5c0b185805b318232b/vercel-0.5.6.tar.gz", hash = "sha256:c5aacd81739ff22771f9c3bba6b764de1589e25fefce6ce5ded32261128f8710", size = 115452, upload-time = "2026-04-13T21:52:40.815Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/bb/70/0bf6374905d8b7eccea8f33e67c8ec8b8ffcb5eb54c40fff52edbc976514/vercel-0.5.6-py3-none-any.whl", hash = "sha256:9f5f6c2f7bcec642809338bc1c507ea91b41b977ed3be16f4e24bd5065b8a1ee", size = 135164, upload-time = "2026-04-13T21:52:39.15Z" },
 ]
 
 [[package]]

@@ -6,8 +6,9 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
   "fastapi>=0.117.1",
-  "openai-agents[vercel]",
+  "openai-agents",
   "python-dotenv>=1.0",
+  "vercel @ git+https://github.com/vercel/vercel-py.git@d5d6ec514313f824144672215a8ce919b6e5b981",
 ]
 
 [tool.ruff]
