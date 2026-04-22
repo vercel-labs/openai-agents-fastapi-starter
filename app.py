@@ -97,18 +97,14 @@ def health() -> dict[str, str | bool]:
 
 
 @app.post("/api/run")
-async def run_agent(body: RunRequest, request: Request) -> StreamingResponse:
+async def run_agent(body: RunRequest) -> StreamingResponse:
     env_url = "https://vercel.com/d?to=%2F%5Bteam%5D%2F%5Bproject%5D%2Fsettings%2Fenvironment-variables"
-    for var in ("OPENAI_API_KEY", "VERCEL_TOKEN", "VERCEL_TEAM_ID", "VERCEL_PROJECT_ID"):
-        if not os.getenv(var, "").strip():
-            raise HTTPException(
-                status_code=503,
-                detail=f"{var} is not set. Add it in your project settings: {env_url}",
-            )
+    if not os.getenv("OPENAI_API_KEY", "").strip():
+        raise HTTPException(
+            status_code=503,
+            detail=f"OPENAI_API_KEY is not set. Add it in your project settings: {env_url}",
+        )
 
-    token = os.getenv("VERCEL_TOKEN")
-    team_id = os.getenv("VERCEL_TEAM_ID")
-    project_id = os.getenv("VERCEL_PROJECT_ID")
     base_url = os.getenv("OPENAI_BASE_URL")
     is_ai_gateway = (base_url is not None) and base_url.startswith("https://ai-gateway.vercel.sh")
 
@@ -132,11 +128,7 @@ async def run_agent(body: RunRequest, request: Request) -> StreamingResponse:
             model_settings=ModelSettings(tool_choice="required"),
         )
 
-        client = VercelSandboxClient(
-            token=token,
-            team_id=team_id,
-            project_id=project_id,
-        )
+        client = VercelSandboxClient()
         session = None
 
         try:

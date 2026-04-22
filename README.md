@@ -15,9 +15,6 @@ Minimal [FastAPI](https://fastapi.tiangolo.com/) app that runs the [OpenAI Agent
 | Variable | Required | Description |
 |----------|----------|-------------|
 | `OPENAI_API_KEY` | Yes | OpenAI or Vercel AI Gateway API key. |
-| `VERCEL_TOKEN` | Yes | Vercel access token. Create one at https://vercel.com/account/tokens. |
-| `VERCEL_TEAM_ID` | Yes | Your Vercel team ID (starts with `team_`). Found under **Team Settings > General**. |
-| `VERCEL_PROJECT_ID` | Yes | Your Vercel project ID (starts with `prj_`). Found under **Project Settings > General**. |
 | `OPENAI_DEFAULT_MODEL` | No | Default model when the request body omits `model`. Falls back to `gpt-4.1-mini`. |
 | `OPENAI_BASE_URL` | No | When using AI Gateway, set this to `https://ai-gateway.vercel.sh/v1` |
 
@@ -33,9 +30,6 @@ Then edit `.env.local` with your keys:
 
 ```
 OPENAI_API_KEY=sk-...
-VERCEL_TOKEN=your_access_token
-VERCEL_TEAM_ID=team_xxx
-VERCEL_PROJECT_ID=prj_xxx
 ```
 
 ## Local development
@@ -60,7 +54,7 @@ vercel
 
 Vercel detects `app.py` and the `app` ASGI instance. Dependencies come from [pyproject.toml](pyproject.toml).
 
-After deploying, make sure `OPENAI_API_KEY`, `VERCEL_TOKEN`, `VERCEL_TEAM_ID`, and `VERCEL_PROJECT_ID` are set under **Project Settings > Environment Variables**.
+After deploying, set `OPENAI_API_KEY` under **Project Settings > Environment Variables**.
 
 ### Timeouts
 
@@ -86,4 +80,4 @@ If you want to use the Vercel AI Gateway with the OpenAI Agents SDK, there are t
 
 ## License
 
-MIT (match your org's policy when publishing).
+MIT
